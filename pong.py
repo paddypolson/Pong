@@ -37,10 +37,6 @@ class Paddle:
         self.surface.fill((40, 40, 40))
         self.rect = self.surface.get_rect()
 
-    def add_distance(self, distance):
-
-        self.distance += distance
-
     def get_corners(self):
 
         return [self.position,
@@ -78,7 +74,14 @@ class Paddle:
 
     def update(self, time_elapsed, limits):
 
-        self.position[1] += time_elapsed * self.speed * self.direction
+        if self.position[1] < 0:
+            self.position[1] = 0
+
+        elif self.position[1] > (limits[1] - self.size[1]):
+            self.position[1] = limits[1] - self.size[1]
+
+        else:
+            self.position[1] += time_elapsed * self.speed * self.direction
 
 
 class Ball:
@@ -219,8 +222,9 @@ def main():
         window.blit(ball.surface, ball.position)
         window.blit(paddle_one.surface, paddle_one.position)
 
-        fps = basic_font.render(str(game_clock.get_fps()), True, (255, 255, 255), (0, 0, 0))
-        window.blit(fps, (0, 0))
+        if settings['show_fps']:
+            fps = basic_font.render(str(game_clock.get_fps()), True, (255, 255, 255), (0, 0, 0))
+            window.blit(fps, (0, 0))
 
         game_clock.tick()
 
