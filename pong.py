@@ -27,19 +27,42 @@ class Direction:
 
 class Paddle:
 
-    def __init__(self, size, speed, x):
+    def __init__(self, size, speed, position):
 
         self.size = size
         self.speed = speed
         self.distance = 0
-        self.x = x
-        self.y = 0
+        self.position = position
         self.surface = pygame.Surface(size)
         self.surface.fill((40, 40, 40))
+        self.rect = self.surface.get_rect()
 
     def add_distance(self, distance):
 
         self.distance += distance
+
+    def get_corners(self):
+
+        return [self.position,
+                (self.position[0] + self.size[0], self.position[1]),
+                (self.position[0], self.position[1] + self.size[1]),
+                (self.position[0] + self.size[0], self.position[1] + self.size[1])]
+
+    def point_inside(self, point):
+
+        corners = self.get_corners()
+
+        return (corners[0][0] <= point[0] <= corners[1][0]) and (corners[0][1] <= point[1] <= corners[2][1])
+
+    def collision(self, ball):
+
+        for corner in ball.get_corners():
+
+            if self.point_inside(corner):
+
+                return True
+
+        return False
 
     def update(self, time):
 
@@ -54,9 +77,9 @@ class Ball:
         self.diameter = self.radius * 2
         self.speed = speed
         self.position = position
-        self.last_position = self.position
         self.direction = Direction()
         self.surface = pygame.Surface((self.diameter, self.diameter))
+        self.rect = self.surface.get_rect()
         pygame.draw.circle(self.surface, (0, 0, 255), (self.radius, self.radius), self.radius)
 
     def paddle_bounce(self):
@@ -73,9 +96,15 @@ class Ball:
         '''
         self.direction.y_toggle()
 
+    def get_corners(self):
+
+        return [self.position,
+                (self.position[0] + self.diameter, self.position[1]),
+                (self.position[0], self.position[1] + self.diameter),
+                (self.position[0] + self.diameter, self.position[1] + self.diameter)]
+
     def update(self, time_elapsed, limits):
 
-        self.last_position = self.position
         self.position = [x + (time_elapsed * self.speed * d) for x, d in zip(self.position, self.direction.d)]
 
         # Check for over run
@@ -129,6 +158,7 @@ def main():
         pass
 
     ball = Ball(10, 200, window.get_rect().center)
+    paddle_one = Paddle((10,100), 100, (window.get_rect().centery, 0))
 
     last_time = time.time()
 
@@ -149,9 +179,14 @@ def main():
         # Update game objects
         ball.update(time_elapsed, window_resolution)
 
+        if paddle_one.collision(ball):
+            print 'bounce'
+            ball.paddle_bounce()
+
         # Render
         window.fill((0, 0, 0))
         window.blit(ball.surface, ball.position)
+        window.blit(paddle_one.surface, paddle_one.position)
 
         fps = basic_font.render(str(game_clock.get_fps()), True, (255, 255, 255), (0, 0, 0))
         window.blit(fps, (0, 0))
