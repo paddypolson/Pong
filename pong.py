@@ -1,16 +1,57 @@
 __author__ = 'Paddy'
 
-'''
+"""
 Pong.
 A simple recreation of the age old classic in Python and PyGame
-'''
+
+Created by Paddy Polson, paddypolson@gmail.com
+Copyright 2015
+
+This implementation of Pong is for educational purposes (hopefully it is still a fun game to play). Some of the features
+may be incomplete and some may be broken. I have tried to use programming patterns that are synonymous with good
+programming style.
+
+Controls:
+Arrow keys to move both paddles up and down.
+Space to release a new ball.
+
+TODO:
+Split player controls
+Add game pad support
+Add onscreen scoreboard
+Add pause menu
+Add randomness to ball creation (subject to play testing)
+"""
 
 import pygame
 import time
 import settings_parse
 
 
+class Player:
+    """
+    The player object. Mostly used to hold the paddle and the score for that player
+    """
+
+    def __init__(self, position):
+
+        self.score = 0
+        self.paddle_size = (10, 100)
+        self.paddle_speed = 500
+        self.position = position
+        self.paddle = Paddle(self.paddle_size, self.paddle_speed, self.position)
+
+    def add_score(self):
+
+        self.score += 1
+
+
 class Direction:
+    """
+    A simple direction object to aid in ball bouncing. Probably a more clever solution is possible but this fits my
+    needs at the moment. Positive values in param 'd' indicates the ball moving up and to the left respectively.
+    Negative would be the opposite.
+    """
 
     def __init__(self):
 
@@ -24,8 +65,31 @@ class Direction:
 
         self.d[0] = -self.d[0]
 
+    def up(self):
+
+        self.d[1] = abs(self.d[1])
+
+    def down(self):
+
+        self.d[1] = -abs(self.d[1])
+
+    def left(self):
+
+        self.d[0] = abs(self.d[0])
+
+    def right(self):
+
+        self.d[0] = -abs(self.d[0])
+
 
 class Paddle:
+    """
+    The paddle is the object that players use to bounce the ball between each other. Each paddle is controlled by one
+    player and has a set speed and size. Direction of travel is controlled with the direction flag. A positive value
+    means and upward direction. When the paddle is updated it takes an elapsed time value and calculates the distance to
+    travel in that frame.
+    The paddle should also check for ball collisions in each frame.
+    """
 
     def __init__(self, size, speed, position):
 
@@ -34,7 +98,7 @@ class Paddle:
         self.direction = 0
         self.position = list(position)
         self.surface = pygame.Surface(size)
-        self.surface.fill((40, 40, 40))
+        self.surface.fill((0, 255, 0))
         self.rect = self.surface.get_rect()
 
     def get_corners(self):
@@ -85,6 +149,9 @@ class Paddle:
 
 
 class Ball:
+    """
+    The ball is the object moves around the playing board and players must try to avoid it falling off.
+    """
 
     def __init__(self, radius, speed, position):
 
@@ -118,48 +185,63 @@ class Ball:
                 (self.position[0], self.position[1] + self.diameter),
                 (self.position[0] + self.diameter, self.position[1] + self.diameter)]
 
-    def update(self, time_elapsed, limits):
+    def update(self, time_elapsed, limits, players):
 
         self.position = [x + (time_elapsed * self.speed * d) for x, d in zip(self.position, self.direction.d)]
 
         # Check for over run
         if int(self.position[0]) <= 0:
 
-            # Should be score point
-            self.paddle_bounce()
+            players[0].add_score()
+            print [player.score for player in players]
+            return False
 
         elif int(self.position[0]) >= (limits[0] - self.diameter):
 
-            # Should be score point
-            self.paddle_bounce()
+            players[1].add_score()
+            print [player.score for player in players]
+            return False
 
         elif int(self.position[1]) <= 0:
-            self.wall_bounce()
+
+            self.direction.down()
 
         elif int(self.position[1]) >= (limits[1] - self.diameter):
-            self.wall_bounce()
+
+            self.direction.up()
+
+        return True
 
 
 def main():
+    """
+    The main game function. Welcome to the beginning of the end.
+    :return:
+    """
 
+    # First we must initialize the pygame module and game clock before most things happen
     pygame.init()
     game_clock = pygame.time.Clock()
 
+    # Grab the settings from the settings file. They are placed in a dictionary.
     settings = settings_parse.parse_settings('settings.cfg')
 
     window_name = 'Pong'
     window_resolution = settings['x_resolution'], settings['y_resolution']
 
+    # Check to see if the game should run in full screen
     flags = 0
     if settings['full_screen']:
         flags = pygame.FULLSCREEN
 
+    # Build the main game window according to the settings provided
     pygame.display.set_caption(window_name)
     window = pygame.display.set_mode(window_resolution, flags, 32)
 
     # Font used for FPS counter
-    basic_font = pygame.font.SysFont(None, 48)
+    fps_font = pygame.font.SysFont(None, 48)
 
+    # Determine the players of the game
     if settings['player_one'] == 'human':
 
         pass
@@ -176,57 +258,82 @@ def main():
 
         pass
 
-    ball = Ball(10, 200, window.get_rect().center)
-    paddle_one = Paddle((10,100), 300, (0, window.get_rect().centery - 50))
+    # Create the starting game objects
+    balls = [Ball(10, 200, window.get_rect().center)]
+    players = [Player((0, window.get_rect().centery - 50)),
+               Player((window.get_rect().right - 10, window.get_rect().centery - 50))]
+    winner = players[1]
 
+    # Initialize the variable game loop time step
     last_time = time.time()
 
     while True:
 
+        # The heart of the variable game loop. Keeps track of how long a frame takes to complete
         current_time = time.time()
         time_elapsed = last_time - current_time
         last_time = current_time
 
-        events = pygame.event.get()
+        # Game clock used for fps calculation
+        game_clock.tick()
 
-        # Handle events
-        for event in events:
+        # Handle the pygame events
+        # TODO: Move this to a more sensible place
+        for event in pygame.event.get():
 
             if event.type == pygame.QUIT:
                 pygame.quit()
 
             if event.type == pygame.KEYDOWN:
 
-                if event.key == pygame.K_UP:
+                if event.key == pygame.K_ESCAPE:
+                    pygame.quit()
 
-                    paddle_one.move_up()
+                elif event.key == pygame.K_UP:
+
+                    [player.paddle.move_up() for player in players]
 
                 elif event.key == pygame.K_DOWN:
 
-                    paddle_one.move_down()
+                    [player.paddle.move_down() for player in players]
+
+                elif event.key == pygame.K_SPACE:
+
+                    balls.append(Ball(10, 200, window.get_rect().center))
 
             if event.type == pygame.KEYUP:
 
-                paddle_one.stop()
+                [player.paddle.stop() for player in players]
 
         # Update game objects
-        ball.update(time_elapsed, window_resolution)
-        paddle_one.update(time_elapsed, window_resolution)
+        for player in players:
+            player.paddle.update(time_elapsed, window_resolution)
 
-        if paddle_one.collision(ball):
-            print 'bounce'
-            ball.paddle_bounce()
+            for ball in balls:
 
-        # Render
+                if player.paddle.collision(ball):
+                    ball.paddle_bounce()
+
+                if not (ball.update(time_elapsed, window_resolution, players)):
+
+                    balls.remove(ball)
+
+        if not balls:
+
+            balls.append(Ball(10, 400, window.get_rect().center))
+
+        # Render all game objects
         window.fill((0, 0, 0))
-        window.blit(ball.surface, ball.position)
-        window.blit(paddle_one.surface, paddle_one.position)
+
+        for ball in balls:
+            window.blit(ball.surface, ball.position)
+
+        for player in players:
+            window.blit(player.paddle.surface, player.paddle.position)
 
         if settings['show_fps']:
-            fps = basic_font.render(str(game_clock.get_fps()), True, (255, 255, 255), (0, 0, 0))
+            fps = fps_font.render(str(game_clock.get_fps()), True, (255, 255, 255), (0, 0, 0))
             window.blit(fps, (0, 0))
-
-        game_clock.tick()
 
         # Update the display
         pygame.display.update()
