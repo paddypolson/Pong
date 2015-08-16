@@ -31,8 +31,8 @@ class Paddle:
 
         self.size = size
         self.speed = speed
-        self.distance = 0
-        self.position = position
+        self.direction = 0
+        self.position = list(position)
         self.surface = pygame.Surface(size)
         self.surface.fill((40, 40, 40))
         self.rect = self.surface.get_rect()
@@ -64,9 +64,21 @@ class Paddle:
 
         return False
 
-    def update(self, time):
+    def move_up(self):
 
-        pass
+        self.direction = 1
+
+    def move_down(self):
+
+        self.direction = -1
+
+    def stop(self):
+
+        self.direction = 0
+
+    def update(self, time_elapsed, limits):
+
+        self.position[1] += time_elapsed * self.speed * self.direction
 
 
 class Ball:
@@ -109,9 +121,13 @@ class Ball:
 
         # Check for over run
         if int(self.position[0]) <= 0:
+
+            # Should be score point
             self.paddle_bounce()
 
         elif int(self.position[0]) >= (limits[0] - self.diameter):
+
+            # Should be score point
             self.paddle_bounce()
 
         elif int(self.position[1]) <= 0:
@@ -158,7 +174,7 @@ def main():
         pass
 
     ball = Ball(10, 200, window.get_rect().center)
-    paddle_one = Paddle((10,100), 100, (window.get_rect().centery, 0))
+    paddle_one = Paddle((10,100), 300, (0, window.get_rect().centery - 50))
 
     last_time = time.time()
 
@@ -176,8 +192,23 @@ def main():
             if event.type == pygame.QUIT:
                 pygame.quit()
 
+            if event.type == pygame.KEYDOWN:
+
+                if event.key == pygame.K_UP:
+
+                    paddle_one.move_up()
+
+                elif event.key == pygame.K_DOWN:
+
+                    paddle_one.move_down()
+
+            if event.type == pygame.KEYUP:
+
+                paddle_one.stop()
+
         # Update game objects
         ball.update(time_elapsed, window_resolution)
+        paddle_one.update(time_elapsed, window_resolution)
 
         if paddle_one.collision(ball):
             print 'bounce'
