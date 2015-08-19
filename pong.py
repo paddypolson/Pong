@@ -27,6 +27,7 @@ import pygame
 import time
 import settings_parse
 import random
+import skynet
 
 
 class Player:
@@ -274,7 +275,7 @@ def main():
     # Create the starting game objects
     balls = [Ball(10, 200, window.get_rect().center)]
     players = [Player(0, (0, window.get_rect().centery - 50), joysticks[0]),
-               Player(0, (window.get_rect().right - 10, window.get_rect().centery - 50))]
+               skynet.AiPlayer(0, (window.get_rect().right - 10, window.get_rect().centery - 50))]
     winner = players[1]
 
     # Initialize the variable game loop time step
@@ -349,6 +350,15 @@ def main():
         if not balls:
 
             balls.append(Ball(10, 400, window.get_rect().center))
+
+        # Run AI
+        for player in players:
+
+            try:
+                player.target_ball(balls)
+                player.update()
+            except AttributeError:
+                pass
 
         # Render all game objects
         window.fill((0, 0, 0))
