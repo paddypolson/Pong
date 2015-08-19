@@ -16,7 +16,7 @@ class AiPlayer(pong.Player):
 
         for ball in balls:
 
-            if ball.direction.d[0] < 0:
+            if ball.direction.d[0] > 0:
 
                 if ball.position[0] > closest.position[0]:
 

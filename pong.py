@@ -158,7 +158,7 @@ class Paddle:
             self.position[1] = limits[1] - self.size[1]
 
         else:
-            self.position[1] += time_elapsed * self.speed * self.direction
+            self.position[1] -= time_elapsed * self.speed * self.direction
 
 
 class Ball:
@@ -173,6 +173,7 @@ class Ball:
         self.speed = speed
         self.position = position
         self.direction = Direction(True)
+        self.time_in_play = 0
         self.surface = pygame.Surface((self.diameter, self.diameter))
         self.rect = self.surface.get_rect()
         pygame.draw.circle(self.surface, (0, 0, 255), (self.radius, self.radius), self.radius)
@@ -193,6 +194,8 @@ class Ball:
 
     def update(self, time_elapsed, limits, players):
 
+        self.speed += time_elapsed * 5
+
         self.position = [x + (time_elapsed * self.speed * d) for x, d in zip(self.position, self.direction.d)]
 
         # Check for over run
@@ -210,11 +213,11 @@ class Ball:
 
         elif int(self.position[1]) <= 0:
 
-            self.direction.down()
+            self.direction.up()
 
         elif int(self.position[1]) >= (limits[1] - self.diameter):
 
-            self.direction.up()
+            self.direction.down()
 
         return True
 
@@ -285,7 +288,7 @@ def main():
 
         # The heart of the variable game loop. Keeps track of how long a frame takes to complete
         current_time = time.time()
-        time_elapsed = last_time - current_time
+        time_elapsed = current_time - last_time
         last_time = current_time
 
         # Game clock used for fps calculation
@@ -327,7 +330,7 @@ def main():
 
                 player_paddle = players[event.joy].paddle
 
-                ball = Ball(10, 400, player_paddle.position)
+                ball = Ball(10, 200, player_paddle.position)
                 ball.direction = Direction(True, event.joy)
                 ball.position = [player_paddle.get_front(), player_paddle.get_center()]
                 if not event.joy:
@@ -349,7 +352,7 @@ def main():
 
         if not balls:
 
-            balls.append(Ball(10, 400, window.get_rect().center))
+            balls.append(Ball(10, 200, window.get_rect().center))
 
         # Run AI
         for player in players:
