@@ -26,6 +26,7 @@ Add randomness to ball creation (subject to play testing)
 import pygame
 import time
 import settings_parse
+import random
 
 
 class Player:
@@ -33,13 +34,13 @@ class Player:
     The player object. Mostly used to hold the paddle and the score for that player
     """
 
-    def __init__(self, position):
+    def __init__(self, player_id, position, joystick=None):
 
         self.score = 0
-        self.paddle_size = (10, 100)
-        self.paddle_speed = 500
+        self.joystick = joystick
+        self.id = player_id
         self.position = position
-        self.paddle = Paddle(self.paddle_size, self.paddle_speed, self.position)
+        self.paddle = Paddle(self.position)
 
     def add_score(self):
 
@@ -53,13 +54,16 @@ class Direction:
     Negative would be the opposite.
     """
 
-    def __init__(self):
+    def __init__(self, random_dir=0, player_towards=0):
 
-        self.d = [1, 1]
+        if not random_dir:
+            self.d = [1, 1]
 
-    def y_toggle(self):
+        elif player_towards:
+            self.d = [random.uniform(0.6, 1), random.uniform(0.6, 1)]
 
-        self.d[1] = -self.d[1]
+        else:
+            self.d = [random.uniform(0.6, 1), -random.uniform(0.6, 1)]
 
     def x_toggle(self):
 
@@ -91,7 +95,7 @@ class Paddle:
     The paddle should also check for ball collisions in each frame.
     """
 
-    def __init__(self, size, speed, position):
+    def __init__(self, position, size=(10, 150), speed=500):
 
         self.size = size
         self.speed = speed
@@ -100,6 +104,14 @@ class Paddle:
         self.surface = pygame.Surface(size)
         self.surface.fill((0, 255, 0))
         self.rect = self.surface.get_rect()
+
+    def get_front(self):
+
+        return self.position[0]
+
+    def get_center(self):
+
+        return self.position[1] + (self.size[1] / 2)
 
     def get_corners(self):
 
@@ -159,7 +171,7 @@ class Ball:
         self.diameter = self.radius * 2
         self.speed = speed
         self.position = position
-        self.direction = Direction()
+        self.direction = Direction(True)
         self.surface = pygame.Surface((self.diameter, self.diameter))
         self.rect = self.surface.get_rect()
         pygame.draw.circle(self.surface, (0, 0, 255), (self.radius, self.radius), self.radius)
@@ -170,13 +182,6 @@ class Ball:
         :return:
         '''
         self.direction.x_toggle()
-
-    def wall_bounce(self):
-        '''
-
-        :return:
-        '''
-        self.direction.y_toggle()
 
     def get_corners(self):
 
@@ -241,6 +246,14 @@ def main():
     # Font used for FPS counter
     fps_font = pygame.font.SysFont(None, 48)
 
+    # Get the joysticks/gamepads connected
+    joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
+    for joystick in joysticks:
+        joystick.init()
+
+    # The number of players in the game
+    number_players = 2
+
     # Determine the players of the game
     if settings['player_one'] == 'human':
 
@@ -260,8 +273,8 @@ def main():
 
     # Create the starting game objects
     balls = [Ball(10, 200, window.get_rect().center)]
-    players = [Player((0, window.get_rect().centery - 50)),
-               Player((window.get_rect().right - 10, window.get_rect().centery - 50))]
+    players = [Player(0, (0, window.get_rect().centery - 50), joysticks[0]),
+               Player(0, (window.get_rect().right - 10, window.get_rect().centery - 50))]
     winner = players[1]
 
     # Initialize the variable game loop time step
@@ -304,6 +317,21 @@ def main():
             if event.type == pygame.KEYUP:
 
                 [player.paddle.stop() for player in players]
+
+            if (event.type == pygame.JOYAXISMOTION) and (event.axis == 1):
+
+                players[event.joy].paddle.direction = -event.value
+
+            if (event.type == pygame.JOYBUTTONUP) and (event.button == 0):
+
+                player_paddle = players[event.joy].paddle
+
+                ball = Ball(10, 400, player_paddle.position)
+                ball.direction = Direction(True, event.joy)
+                ball.position = [player_paddle.get_front(), player_paddle.get_center()]
+                if not event.joy:
+                    ball.position[0] = player_paddle.get_front() + player_paddle.size[0]
+                balls.append(ball)
 
         # Update game objects
         for player in players:
