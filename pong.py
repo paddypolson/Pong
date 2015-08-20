@@ -28,6 +28,7 @@ import time
 import settings_parse
 import random
 import skynet
+import pygame.gfxdraw as gfxdraw
 
 
 class Player:
@@ -103,7 +104,7 @@ class Paddle:
         self.direction = 0
         self.position = list(position)
         self.surface = pygame.Surface(size)
-        self.surface.fill((0, 255, 0))
+        self.surface.fill((3, 54, 73))
         self.rect = self.surface.get_rect()
 
     def get_front(self):
@@ -176,7 +177,9 @@ class Ball:
         self.time_in_play = 0
         self.surface = pygame.Surface((self.diameter, self.diameter))
         self.rect = self.surface.get_rect()
-        pygame.draw.circle(self.surface, (0, 0, 255), (self.radius, self.radius), self.radius)
+        self.surface.set_colorkey((1, 1, 1))
+        self.surface.fill((1, 1, 1))
+        pygame.draw.circle(self.surface, (3, 101, 100), (self.radius, self.radius), self.radius)
 
     def paddle_bounce(self):
         '''
@@ -246,14 +249,27 @@ def main():
     # Build the main game window according to the settings provided
     pygame.display.set_caption(window_name)
     window = pygame.display.set_mode(window_resolution, flags, 32)
-
-    # Font used for FPS counter
-    fps_font = pygame.font.SysFont(None, 48)
+    window_rect = window.get_rect()
 
     # Get the joysticks/gamepads connected
     joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
     for joystick in joysticks:
         joystick.init()
+
+    # Create the game and score area
+    # The score area is along the top with a height 1/10th of the window
+    score_height = window_rect.height / 10
+    game_height = window_rect.height - score_height
+    score_surface = pygame.Surface((window_rect.width, score_height))
+    game_surface = pygame.Surface((window_rect.width, game_height))
+
+    game_resolution = (settings['x_resolution'], game_height)
+
+    # Font used for FPS counter
+    fps_font = pygame.font.SysFont(None, 48)
+
+    # Font used for score
+    score_font = pygame.font.SysFont(None, score_height - 4)
 
     # The number of players in the game
     number_players = 2
@@ -277,7 +293,7 @@ def main():
 
     # Create the starting game objects
     balls = [Ball(10, 200, window.get_rect().center)]
-    players = [Player(0, (0, window.get_rect().centery - 50), joysticks[0]),
+    players = [Player(0, (0, window.get_rect().centery - 50)),
                skynet.AiPlayer(0, (window.get_rect().right - 10, window.get_rect().centery - 50))]
     winner = players[1]
 
@@ -339,20 +355,20 @@ def main():
 
         # Update game objects
         for player in players:
-            player.paddle.update(time_elapsed, window_resolution)
+            player.paddle.update(time_elapsed, game_resolution)
 
             for ball in balls:
 
                 if player.paddle.collision(ball):
                     ball.paddle_bounce()
 
-                if not (ball.update(time_elapsed, window_resolution, players)):
+                if not (ball.update(time_elapsed, game_resolution, players)):
 
                     balls.remove(ball)
 
         if not balls:
 
-            balls.append(Ball(10, 200, window.get_rect().center))
+            balls.append(Ball(10, 200, game_surface.get_rect().center))
 
         # Run AI
         for player in players:
@@ -366,14 +382,43 @@ def main():
         # Render all game objects
         window.fill((0, 0, 0))
 
+        # Draw the playing field
+        board_colour = (232, 221, 203)
+        line_colour = (205, 179, 128)
+        width = game_surface.get_rect().width
+        height = game_surface.get_rect().height
+        center_x = game_surface.get_rect().centerx
+        center_y = game_surface.get_rect().centery
+        game_surface.fill(board_colour)
+        pygame.draw.line(game_surface, line_colour, (0, 0), (width, 0), 4)
+        pygame.draw.line(game_surface, line_colour, (width - 2, 0), (width - 2, height), 4)
+        pygame.draw.line(game_surface, line_colour, (0, 0), (0, height), 4)
+        pygame.draw.line(game_surface, line_colour, (0, height - 2), (width, height - 2), 4)
+        pygame.draw.line(game_surface, line_colour, (center_x, 0), (center_x, height), 2)
+        gfxdraw.aacircle(game_surface, center_x, center_y, 100, line_colour)
+        gfxdraw.aacircle(game_surface, center_x, center_y, 101, line_colour)
+
         for ball in balls:
-            window.blit(ball.surface, ball.position)
+            game_surface.blit(ball.surface, ball.position)
 
         for player in players:
-            window.blit(player.paddle.surface, player.paddle.position)
+            game_surface.blit(player.paddle.surface, player.paddle.position)
+
+        window.blit(game_surface, (0, score_height))
+
+        # Draw The score
+        score_string = str(players[0].score) + '   ' + str(players[1].score)
+        score = score_font.render(score_string, True, board_colour, (0, 0, 0))
+        score_surf_rect = score_surface.get_rect()
+        score_rect = score.get_rect()
+        score_surface.blit(score, (score_surf_rect.centerx - score_rect.centerx,
+                                   score_surf_rect.centery - score_rect.centery))
+        pygame.draw.line(score_surface, line_colour, (score_surf_rect.centerx, 0),
+                         (score_surf_rect.centerx, score_surf_rect.height), 2)
+        window.blit(score_surface, (0, 0))
 
         if settings['show_fps']:
-            fps = fps_font.render(str(game_clock.get_fps()), True, (255, 255, 255), (0, 0, 0))
+            fps = fps_font.render(str(int(game_clock.get_fps())), True, (255, 255, 255), (0, 0, 0))
             window.blit(fps, (0, 0))
 
         # Update the display
